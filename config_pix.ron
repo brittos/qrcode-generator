@@ -1,0 +1,6 @@
+DadosPix(
+    chave: "recebedor@email.com",
+    nome: "FULANO DE TAL",
+    cidade: "BELO HORIZONTE",
+    valor: None, //valor: Some(150.50),
+)

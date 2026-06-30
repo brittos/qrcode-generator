@@ -1,3 +1,5 @@
+mod pix;
+
 use image::{GrayImage, Luma};
 use qrcode::render::unicode;
 use qrcode::{EcLevel, QrCode, Version};
@@ -19,6 +21,8 @@ struct Configuracao {
     margem: u32,
     /// Caminho do arquivo de saída (quando aplicável)
     caminho_saida: Option<String>,
+    /// Caminho para o arquivo de configuração PIX (quando modo PIX ativo)
+    pix_config: Option<String>,
 }
 
 /// Formatos de saída suportados
@@ -195,6 +199,7 @@ fn analisar_argumentos() -> Result<Configuracao, String> {
     let mut tamanho_modulo = 10;
     let mut margem = 4;
     let mut caminho_saida = None;
+    let mut pix_config: Option<String> = None;
 
     let mut i = 1;
     while i < args.len() {
@@ -249,6 +254,15 @@ fn analisar_argumentos() -> Result<Configuracao, String> {
                 }
                 caminho_saida = Some(args[i].clone());
             }
+            "--pix" | "-p" => {
+                // Optional path to PIX config file (default: config_pix.ron)
+                if i + 1 < args.len() && !args[i + 1].starts_with('-') {
+                    i += 1;
+                    pix_config = Some(args[i].clone());
+                } else {
+                    pix_config = Some("config_pix.ron".to_string());
+                }
+            }
             outro => {
                 if outro.starts_with('-') {
                     return Err(format!("Opção desconhecida: '{}'", outro));
@@ -259,8 +273,10 @@ fn analisar_argumentos() -> Result<Configuracao, String> {
         i += 1;
     }
 
-    if dados.is_empty() {
-        return Err("Nenhum dado fornecido para codificar".to_string());
+    if dados.is_empty() && pix_config.is_none() {
+        return Err(
+            "Nenhum dado fornecido para codificar. Use --pix ou forneça um texto.".to_string(),
+        );
     }
 
     // Define caminho padrão de saída se necessário
@@ -279,6 +295,7 @@ fn analisar_argumentos() -> Result<Configuracao, String> {
         tamanho_modulo,
         margem,
         caminho_saida,
+        pix_config,
     })
 }
 
@@ -295,25 +312,64 @@ Opções:
   -t, --tamanho <pixels>   Tamanho de cada módulo em pixels (padrão: 10)
   -m, --margem <módulos>   Largura da margem/quiet zone (padrão: 4)
   -o, --saida <arquivo>    Caminho do arquivo de saída
+  -p, --pix [arquivo]      Gera QR Code PIX (padrão: config_pix.ron)
 
 Exemplos:
   qrcode-generator "Olá, mundo!"
   qrcode-generator "https://rust-lang.org" -f png -o rust.png
   qrcode-generator "Contato" -f svg -e H -t 8
-  qrcode-generator "dados" -f png -t 20 -m 2 -o grande.png"#;
+  qrcode-generator "dados" -f png -t 20 -m 2 -o grande.png
+  qrcode-generator --pix
+  qrcode-generator --pix -f png -o pix.png
+  qrcode-generator --pix meu_config.ron -f svg -o pagamento.svg"#;
 
     eprintln!("{}", uso);
     "Argumentos insuficientes".to_string()
 }
 
 fn main() {
-    let config = match analisar_argumentos() {
+    let mut config = match analisar_argumentos() {
         Ok(c) => c,
         Err(e) => {
             eprintln!("Erro: {}", e);
             std::process::exit(1);
         }
     };
+
+    // If PIX mode is active, generate the BRCode payload and use it as data
+    if let Some(ref pix_path) = config.pix_config {
+        let dados_pix = match pix::carregar_config_pix(pix_path) {
+            Ok(d) => d,
+            Err(e) => {
+                eprintln!("Erro: {}", e);
+                std::process::exit(1);
+            }
+        };
+
+        println!("--- Dados PIX ---");
+        println!("  Chave:   {}", dados_pix.chave);
+        println!("  Nome:    {}", dados_pix.nome);
+        println!("  Cidade:  {}", dados_pix.cidade);
+        match dados_pix.valor {
+            Some(v) => println!("  Valor:   R$ {:.2}", v),
+            None => println!("  Valor:   (livre)"),
+        }
+        println!();
+
+        let payload = match pix::gerar_payload_pix(&dados_pix) {
+            Ok(p) => p,
+            Err(e) => {
+                eprintln!("Erro ao gerar payload PIX: {}", e);
+                std::process::exit(1);
+            }
+        };
+
+        println!("--- Payload BRCode ---");
+        println!("  {}", payload);
+        println!();
+
+        config.dados = payload;
+    }
 
     // Gera o QR Code
     let codigo = match QrCode::with_error_correction_level(&config.dados, config.nivel_ec) {

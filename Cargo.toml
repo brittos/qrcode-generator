@@ -6,3 +6,6 @@ edition = "2024"
 [dependencies]
 qrcode = "0.14"
 image = "0.25"
+crc-any = "3.0.1"
+ron = "0.12.2"
+serde = { version = "1", features = ["derive"] }

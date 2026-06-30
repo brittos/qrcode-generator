@@ -133,7 +133,7 @@ fn gerar_png(codigo: &QrCode, caminho: &str, tamanho_modulo: u32, margem: u32) -
     // Salva a imagem como PNG
     imagem
         .save(caminho)
-        .map_err(|e| io::Error::new(io::ErrorKind::Other, format!("Erro ao salvar PNG: {}", e)))?;
+        .map_err(|e| io::Error::other(format!("Erro ao salvar PNG: {}", e)))?;
 
     println!(
         "PNG salvo em '{}' ({}x{} pixels)",

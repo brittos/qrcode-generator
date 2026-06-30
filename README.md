@@ -83,6 +83,4 @@ qrcode-generator <texto> [opções]
 | `-m`, `--margem <módulos>`| Largura da margem/quiet zone                       | `4`        |
 | `-o`, `--saida <arquivo>` | Caminho do arquivo de saída                        | —          |
 
-## Licença
 
-Este projeto está sob a licença MIT.
